@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>API 문서 조회</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f9f9f9;
+        }
+        h1 {
+            color: #333;
+        }
+        button {
+            padding: 10px 20px;
+            font-size: 16px;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        /* 결과 영역 스타일 */
+        #result-container {
+            margin-top: 20px;
+            padding: 15px;
+            background-color: white;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            min-height: 100px;
+            white-space: pre-wrap; /* JSON 형식을 유지하며 줄바꿈 */
+            font-family: monospace;
+            overflow-x: auto;
+        }
+        .error {
+            color: red;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>문서 목록 가져오기</h1>
+    <p>아래 버튼을 누르면 API를 호출하여 결과를 표시합니다.</p>
+    
+    <button id="fetchBtn">API 호출하기</button>
+
+    <div id="result-container">결과가 여기에 표시됩니다...</div>
+
+    <script>
+        // DOM 요소 선택
+        const button = document.getElementById('fetchBtn');
+        const resultContainer = document.getElementById('result-container');
+
+        // 버튼 클릭 이벤트 리스너 등록
+        button.addEventListener('click', async () => {
+            // 로딩 상태 표시
+            resultContainer.textContent = "데이터를 불러오는 중입니다...";
+            resultContainer.classList.remove('error');
+
+            try {
+                // 1. API Base URL 설정
+                // 참고: process.env는 Node.js 환경 변수이므로 순수 HTML에서는 동작하지 않습니다.
+                // 따라서 여기서는 안전하게 localhost를 기본값으로 사용하거나, 
+                // 실제 배포 시에는 값을 직접 입력해야 합니다.
+                const apiBaseUrl = "http://localhost:8000"; 
+
+                // 2. API 호출 URL 구성
+                const url = `${apiBaseUrl}/api/v1/documents?skip=0&limit=100`;
+                
+                // 3. fetch API를 사용해 비동기 요청
+                const response = await fetch(url, {
+                    method: 'GET',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        // 필요시 인증 토큰 헤더 추가
+                        // 'Authorization': 'Bearer YOUR_TOKEN' 
+                    }
+                });
+
+                // 4. 응답 상태 확인
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
+                // 5. JSON 데이터 파싱
+                const data = await response.json();
+
+                // 6. 화면에 결과 출력 (보기 좋게 들여쓰기 2칸 적용)
+                resultContainer.textContent = JSON.stringify(data, null, 2);
+
+            } catch (error) {
+                // 에러 발생 시 처리
+                console.error("API 호출 실패:", error);
+                resultContainer.textContent = `오류가 발생했습니다: ${error.message}`;
+                resultContainer.classList.add('error');
+            }
+        });
+    </script>
+</body>
+</html>

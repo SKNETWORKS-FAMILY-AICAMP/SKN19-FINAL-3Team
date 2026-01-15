@@ -1,0 +1,190 @@
+name: Project Automation (Professional KST System)
+
+on:
+  issues:
+    types: [opened, edited, closed, deleted, reopened, assigned, unassigned]
+  pull_request:
+    types: [opened, edited, closed, reopened, assigned, unassigned]
+
+# 보안: 이 워크플로우에 필요한 최소 권한만 부여 (읽기 전용)
+permissions:
+  contents: read
+  issues: read
+  pull-requests: read
+
+jobs:
+  automation:
+    runs-on: ubuntu-latest
+    if: github.event.issue || github.event.pull_request
+    
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python Environment
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+
+      - name: Install Python Dependencies
+        run: pip install google-api-python-client google-auth tzdata
+
+      - name: Sync Google Calendar
+        id: sync
+        env:
+          GCP_KEY: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_KEY }}
+          CALENDAR_ID: ${{ secrets.GOOGLE_CALENDAR_ID }}
+          EVENT_CONTEXT: ${{ toJson(github.event) }}
+        run: |
+          import os, json, sys, re, base64
+          from datetime import datetime, timedelta
+          from zoneinfo import ZoneInfo
+          from google.oauth2 import service_account
+          from googleapiclient.discovery import build
+
+          # --- 1. 데이터 파싱 ---
+          context = json.loads(os.environ['EVENT_CONTEXT'])
+          payload = context.get('issue') or context.get('pull_request')
+          if not payload:
+              sys.exit(1)
+
+          action = context.get('action')
+          html_url = payload.get('html_url')
+          title = payload.get('title', 'No Title')
+          body = payload.get('body') or "" 
+          created_at_str = payload.get('created_at')
+
+          # --- 2. 인증 ---
+          key_content = os.environ.get('GCP_KEY', '').strip()
+          try:
+              info = json.loads(key_content)
+          except json.JSONDecodeError:
+              info = json.loads(base64.b64decode(key_content).decode('utf-8'))
+
+          creds = service_account.Credentials.from_service_account_info(info)
+          service = build('calendar', 'v3', credentials=creds)
+          calendar_id = os.environ['CALENDAR_ID']
+
+          # --- 3. 데이터 가공 ---
+          assignees = [u['login'] for u in payload.get('assignees', [])]
+          assignee_str = ", ".join(assignees) if assignees else "Unassigned"
+          labels = [l['name'] for l in payload.get('labels', [])]
+          label_str = ", ".join(labels) if labels else "None"
+          
+          now_kst = datetime.now(ZoneInfo("Asia/Seoul")).strftime('%Y-%m-%d %H:%M:%S (KST)')
+
+          date_pattern = r'(\d{4}[-./]\d{2}[-./]\d{2})'
+          start_match = re.search(fr'Start:\s*{date_pattern}', body, re.IGNORECASE)
+          end_match = re.search(fr'End:\s*{date_pattern}', body, re.IGNORECASE)
+
+          display_date = ""
+          if start_match:
+              s_date = start_match.group(1).replace('.', '-').replace('/', '-')
+              if end_match:
+                  e_date = end_match.group(1).replace('.', '-').replace('/', '-')
+                  e_obj = datetime.strptime(e_date, '%Y-%m-%d') + timedelta(days=1)
+                  real_end = e_obj.strftime('%Y-%m-%d')
+                  display_date = f"{s_date} ~ {e_date}"
+              else:
+                  real_end = s_date
+                  display_date = f"{s_date} (Target)"
+              start_body = {'date': s_date}
+              end_body = {'date': real_end}
+          else:
+              created_dt = datetime.fromisoformat(created_at_str.replace('Z', '+00:00'))
+              display_date = "Created (No Schedule)"
+              start_body = {'dateTime': created_dt.isoformat()}
+              end_body = {'dateTime': created_dt.isoformat()}
+
+          # Discord용 제목 자르기
+          safe_title = title[:200] + "..." if len(title) > 200 else title
+          
+          with open(os.environ['GITHUB_OUTPUT'], 'a') as fh:
+              print(f"display_date={display_date}", file=fh)
+              print(f"assignees={assignee_str}", file=fh)
+              print(f"safe_title={safe_title}", file=fh)
+
+          # --- 4. 캘린더 동기화 ---
+          # 안전장치: 캘린더 설명 길이 제한 (Google API Limit ~8kb 방어)
+          raw_desc = (
+              f"Assignees: {assignee_str}\n"
+              f"Labels: {label_str}\n"
+              f"Last Updated: {now_kst}\n\n"
+              f"Link: {html_url}"
+          )
+          # 4000자 정도로 안전하게 자름
+          safe_desc = raw_desc[:4000] + "..." if len(raw_desc) > 4000 else raw_desc
+
+          events = service.events().list(
+              calendarId=calendar_id, q=html_url, singleEvents=True, maxResults=5
+          ).execute().get('items', [])
+
+          sync_actions = ['opened', 'edited', 'reopened', 'closed', 'assigned', 'unassigned']
+
+          if action == 'deleted':
+              for item in events:
+                  service.events().delete(calendarId=calendar_id, eventId=item['id']).execute()
+                  print(f"Deleted event: {item['id']}")
+
+          elif action in sync_actions:
+              summary_prefix = "[Closed] " if action == 'closed' else ""
+              event_body = {
+                  'summary': f"{summary_prefix}{title}",
+                  'description': safe_desc, # 잘린 설명 사용
+                  'start': start_body,
+                  'end': end_body,
+                  'colorId': '8' if action == 'closed' else None 
+              }
+
+              if events:
+                  for item in events:
+                      service.events().update(
+                          calendarId=calendar_id, eventId=item['id'], body=event_body
+                      ).execute()
+                      print(f"Updated event: {item['id']}")
+              elif action in ['opened', 'reopened', 'edited', 'assigned']:
+                  service.events().insert(calendarId=calendar_id, body=event_body).execute()
+                  print("Created new event.")
+        shell: python
+
+      - name: Discord Notification (Success)
+        if: success()
+        uses: sarisia/actions-status-discord@v1
+        with:
+          webhook: ${{ secrets.DISCORD_WEBHOOK }}
+          content: "GitHub Automation Update"
+          title: |
+            ${{ github.event.action == 'opened' && 'New Issue' || 
+                github.event.action == 'reopened' && 'Issue Reopened' || 
+                github.event.action == 'edited' && 'Issue Updated' || 
+                github.event.action == 'assigned' && 'User Assigned' || 
+                github.event.action == 'unassigned' && 'User Unassigned' || 
+                github.event.action == 'closed' && 'Issue Completed' || 
+                '🗑️ Issue Deleted' }}
+          description: |
+            **Status:** ${{ github.event.action }}
+            **Title:** ${{ steps.sync.outputs.safe_title }}
+            **Date:** ${{ steps.sync.outputs.display_date }}
+            **Assignee:** ${{ steps.sync.outputs.assignees }}
+            **Link:** [View Issue](${{ github.event.issue.html_url || github.event.pull_request.html_url }})
+          color: |
+            ${{ github.event.action == 'opened' && '0x3498DB' || 
+                github.event.action == 'reopened' && '0x3498DB' || 
+                github.event.action == 'assigned' && '0x9B59B6' || 
+                github.event.action == 'unassigned' && '0x9B59B6' || 
+                github.event.action == 'edited' && '0xF1C40F' || 
+                github.event.action == 'closed' && '0x2ECC71' || 
+                '0xE74C3C' }}
+          username: "Project Manager"
+          avatar_url: "https://github.githubassets.com/images/modules/logos_page/GitHub-Mark.png"
+
+      - name: Discord Notification (Failure)
+        if: failure()
+        uses: sarisia/actions-status-discord@v1
+        with:
+          webhook: ${{ secrets.DISCORD_WEBHOOK }}
+          title: "Automation Failed"
+          description: "Google Calendar Sync process encountered an error."
+          color: "0xFF0000"
+          username: "Project Manager"
