@@ -20,6 +20,7 @@ llama-index-readers-file==0.5.6
 llama-parse==0.6.54
 openai==2.14.0
 huggingface-hub==0.36.0
+google-genai
 
 # ============================================================
 # Database & Storage
@@ -40,16 +41,25 @@ openpyxl>=3.1.0
 pillow==12.1.0
 beautifulsoup4==4.14.3
 tiktoken==0.12.0
+numpy
 
 # ============================================================
 # sLLM & Local Inference
 # ============================================================
 torch==2.9.1
 transformers==4.57.3
+sentence-transformers==5.2.0
 accelerate==1.12.0
 bitsandbytes==0.49.0
 safetensors==0.7.0
 tokenizers==0.22.2
+
+# ============================================================
+# Security & Auth (Common)
+# ============================================================
+python-jose[cryptography]
+passlib[argon2]
+argon2-cffi
 
 # ============================================================
 # Utility

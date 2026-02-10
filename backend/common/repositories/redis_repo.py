@@ -20,6 +20,9 @@ class RedisRepository:
     def __init__(self, redis_url: str):
         self.redis = redis.from_url(redis_url, decode_responses=True)
 
+    # ------------------------------------------------------------
+    # CREATE
+    # ------------------------------------------------------------
     async def enqueue(self, key_name: str, payload: dict):
         """
         지정한 큐에 작업을 추가하고, 동시에 payload 데이터를 기반으로 상태 메타데이터(Hash)를 생성합니다.
@@ -51,14 +54,9 @@ class RedisRepository:
             # 4. 일괄 실행 (Atomic)
             await pipe.execute()
 
-    async def set_task_metadata(self, task_id: str, status: LlmTaskStatus, **kwargs):
-        """작업 상태 및 추가 메타데이터 저장."""
-        key = f"task_id:{task_id}"
-        mapping = {"task_status": status.value}
-        if kwargs:
-            mapping.update(kwargs)
-        await self.redis.hset(key, mapping=mapping)
-
+    # ------------------------------------------------------------
+    # READ
+    # ------------------------------------------------------------
     async def get_task_metadata(self, task_id: str) -> Optional[dict]:
         """작업 상태 해시를 조회. 없으면 None 반환."""
         key = f"task_id:{task_id}"
@@ -74,6 +72,24 @@ class RedisRepository:
             return json.loads(data)
         return None
 
+    # ------------------------------------------------------------
+    # UPDATE
+    # ------------------------------------------------------------
+    async def set_task_metadata(self, task_id: str, status: LlmTaskStatus, **kwargs):
+        """작업 상태 및 추가 메타데이터 저장."""
+        key = f"task_id:{task_id}"
+        mapping = {"task_status": status.value}
+        if kwargs:
+            mapping.update(kwargs)
+        await self.redis.hset(key, mapping=mapping)
+
+    # ------------------------------------------------------------
+    # DELETE
+    # ------------------------------------------------------------
+
+    # ------------------------------------------------------------
+    # ETC
+    # ------------------------------------------------------------
     async def close(self):
         """Redis 연결을 정리."""
         await self.redis.close()

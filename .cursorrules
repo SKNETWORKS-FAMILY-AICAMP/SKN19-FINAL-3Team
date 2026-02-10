@@ -1,0 +1,33 @@
+# 프로젝트 규칙 (Project Rules)
+
+1.  **컨텍스트 인식 (Context Awareness)**:
+    *   문서 원자화(atomization), 인덱싱 또는 관리와 관련된 작업을 시작하기 전에 항상 `docs/project_analysis.md`를 확인하십시오.
+    *   이 문서는 "원자화" 프로세스에 대한 정식 아키텍처 및 지침을 포함합니다.
+
+2.  **아키텍처 준수 (Architecture Compliance)**:
+    *   무거운 작업에는 비동기 워커 패턴(Redis -> Worker)을 따르십시오.
+    *   핵심 알고리즘에는 `LLMEngine`을 사용하십시오.
+
+3.  **환경 설정 (Environment Setup)**:
+    *   **Backend AI Server**: Anaconda 가상환경 `ajc_ai`를 사용하십시오.
+    *   **Backend API Server**: Anaconda 가상환경 `ajc_api`를 사용하십시오.
+    *   상세한 실행 및 설정 방법은 `backend/README.md`를 참조하십시오.
+
+4.  **작업 내역 (Work History)**:
+    *   백엔드 관련 변경 사항은 `backend/HISTORY.md`에 기록하십시오.
+    *   프론트엔드 관련 변경 사항은 `frontend/HISTORY.md`에 기록하십시오.
+    *   중복을 방지하기 위해 작업을 시작하기 전에 기존 내역을 검토하십시오.
+
+5.  **지식 유지보수 (Knowledge Maintenance)**:
+    *   대화 중 새로운 아키텍처 결정이나 분석 내용이 나오면 반드시 `docs/project_analysis.md`를 업데이트하십시오.
+    *   이 문서는 프로젝트의 "최신 상태(Source of Truth)"를 반영해야 합니다.
+    
+6.  **언어 규칙 (Language Rules)**:
+    *   **설계 제안(Implementation Plan 등)**은 반드시 **한국어**로 작성해야 합니다.
+
+7. **주석 규칙**:
+    *   **주석**은 반드시 명사형 종결체로 함수, 코드가 무슨 용도로 사용되는지에 중점에 맞춰 작성 합니다.
+
+
+8. **코딩 스타일 (Coding Style)**:
+    *   **Guard Clause (Early Return) 사용**: 중첩된 `if` 문(Arrow Code)을 피하고, 가독성을 높이기 위해 조건이 맞지 않으면 즉시 반환하는 Guard Clause 패턴을 사용하십시오.

@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Auth Logic Test</title>
+    <style>
+        body { font-family: sans-serif; max-width: 800px; margin: 2rem auto; padding: 0 1rem; }
+        .card { border: 1px solid #ddd; padding: 1.5rem; border-radius: 8px; margin-bottom: 1rem; }
+        .hidden { display: none; }
+        input { padding: 0.5rem; margin-right: 0.5rem; }
+        button { padding: 0.5rem 1rem; cursor: pointer; background: #0070f3; color: white; border: none; border-radius: 4px; }
+        button:hover { background: #0051a2; }
+        button.secondary { background: #666; }
+        pre { background: #f4f4f4; padding: 1rem; overflow-x: auto; font-size: 0.9rem; }
+        .status-ok { color: green; font-weight: bold; }
+        .status-err { color: red; font-weight: bold; }
+    </style>
+</head>
+<body>
+    <h1>🔒 Auth Integration Test</h1>
+    
+    <!-- 1. Login Form -->
+    <div id="login-section" class="card">
+        <h3>1. Login</h3>
+        <div>
+            <input type="text" id="username" placeholder="Username (login_id)" value="admin">
+            <input type="password" id="password" placeholder="Password" value="password123">
+            <button onclick="login()">Login</button>
+        </div>
+    </div>
+
+    <!-- 2. Token Dashboard -->
+    <div id="dashboard-section" class="card hidden">
+        <h3>2. Token Dashboard</h3>
+        <p><strong>Status:</strong> <span class="status-ok">Authenticated</span></p>
+        <div style="margin-bottom: 1rem;">
+            <button onclick="testProtectedApi()">Test Protected API</button>
+            <button onclick="refreshToken()" class="secondary">Refresh Token</button>
+            <button onclick="logout()" style="background: #e00;">Logout</button>
+        </div>
+        
+        <h4>Parsed User Info (from JWT):</h4>
+        <pre id="user-info">No data</pre>
+
+        <h4>Current Tokens (LocalStorage):</h4>
+        <p>Access Token (Short-lived):</p>
+        <pre id="access-token-display">...</pre>
+        <p>Refresh Token (Long-lived):</p>
+        <pre id="refresh-token-display">...</pre>
+    </div>
+
+    <!-- 3. API Logs -->
+    <div class="card">
+        <h3>3. API Response Log</h3>
+        <pre id="api-log">Waiting for action...</pre>
+    </div>
+
+    <script>
+        const API_BASE = "http://localhost:8000/api/v1";
+
+        // --- Helper: Update UI ---
+        function updateUI() {
+            const at = localStorage.getItem("access_token");
+            const rt = localStorage.getItem("refresh_token");
+
+            if (at && rt) {
+                document.getElementById("login-section").classList.add("hidden");
+                document.getElementById("dashboard-section").classList.remove("hidden");
+                
+                document.getElementById("access-token-display").textContent = at.substring(0, 50) + "...";
+                document.getElementById("refresh-token-display").textContent = rt.substring(0, 50) + "...";
+                
+                // Decode JWT simply (Production should use a library)
+                try {
+                    const payload = JSON.parse(atob(at.split('.')[1]));
+                    document.getElementById("user-info").textContent = JSON.stringify(payload, null, 2);
+                } catch (e) {
+                    document.getElementById("user-info").textContent = "Invalid JWT Format";
+                }
+            } else {
+                document.getElementById("login-section").classList.remove("hidden");
+                document.getElementById("dashboard-section").classList.add("hidden");
+            }
+        }
+
+        function log(msg, data = null) {
+            const timestamp = new Date().toLocaleTimeString();
+            let text = `[${timestamp}] ${msg}`;
+            if (data) text += `\n${JSON.stringify(data, null, 2)}`;
+            document.getElementById("api-log").textContent = text;
+        }
+
+        // --- 1. Login ---
+        async function login() {
+            const username = document.getElementById("username").value;
+            const password = document.getElementById("password").value;
+
+            // OAuth2PasswordRequestForm expects form-data
+            const formData = new URLSearchParams();
+            formData.append("username", username);
+            formData.append("password", password);
+
+            try {
+                const res = await fetch(`${API_BASE}/auth/login`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+                    body: formData
+                });
+
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.detail);
+
+                // Save Tokens
+                localStorage.setItem("access_token", data.access_token);
+                if (data.refresh_token) {
+                    localStorage.setItem("refresh_token", data.refresh_token);
+                }
+                
+                log("Login Success", data);
+                updateUI();
+            } catch (err) {
+                log("Login Failed: " + err.message);
+            }
+        }
+
+        // --- 2. Test Protected API ---
+        async function testProtectedApi() {
+            const token = localStorage.getItem("access_token");
+            try {
+                // Testing with Document List API (Protected by main.py dependency)
+                const res = await fetch(`${API_BASE}/documents`, { 
+                    method: "GET",
+                    headers: { "Authorization": `Bearer ${token}` }
+                });
+
+                if (res.status === 401) {
+                    log("401 Unauthorized - Access Token Expired? Try Refresh.");
+                    return;
+                }
+
+                const data = await res.json();
+                log("Protected API Response (/documents)", data);
+            } catch (err) {
+                log("API Call Error: " + err.message);
+            }
+        }
+
+        // --- 3. Refresh Token ---
+        async function refreshToken() {
+            const refreshToken = localStorage.getItem("refresh_token");
+            if (!refreshToken) return log("No Refresh Token found");
+
+            try {
+                const res = await fetch(`${API_BASE}/auth/refresh?refresh_token=${refreshToken}`, {
+                    method: "POST"
+                });
+
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.detail);
+
+                // Update Access Token
+                localStorage.setItem("access_token", data.access_token);
+                // Some implementations rotate refresh token too
+                if (data.refresh_token) {
+                    localStorage.setItem("refresh_token", data.refresh_token);
+                }
+
+                log("Token Refresh Success", data);
+                updateUI();
+            } catch (err) {
+                log("Refresh Failed: " + err.message);
+                logout(); // Logout if refresh fails
+            }
+        }
+
+        // --- 4. Logout ---
+        async function logout() {
+            const refreshToken = localStorage.getItem("refresh_token");
+            if (refreshToken) {
+                try {
+                    await fetch(`${API_BASE}/auth/logout?refresh_token=${refreshToken}`, {
+                        method: "POST"
+                    });
+                    log("Server Logout Success");
+                } catch (e) {
+                    console.error("Logout error", e);
+                }
+            }
+            
+            localStorage.removeItem("access_token");
+            localStorage.removeItem("refresh_token");
+            updateUI();
+            log("Logged out locally");
+        }
+
+        // Initialize
+        updateUI();
+    </script>
+</body>
+</html>

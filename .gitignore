@@ -56,6 +56,7 @@ Thumbs.db
 .vscode/
 .idea/
 *.swp
+.agent/
 
 
 # ==========================================
@@ -72,3 +73,7 @@ benchmark_results/
 # ==========================================
 hidden/
 data/docs_data
+data/sample_data
+backend/ai_server/app/model_data
+backend/ai_server/app/data
+data/test_output_make.ipynb

@@ -1,15 +1,15 @@
 import type { Metadata } from 'next'
 import { Geist, Geist_Mono } from 'next/font/google'
 import { Analytics } from '@vercel/analytics/next'
-import './globals.css'
+import '../styles/globals.css'
 
 const _geist = Geist({ subsets: ["latin"] });
 const _geistMono = Geist_Mono({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: 'AJC App',
-  description: 'Created by Poli Cheetah Team',
-  generator: 'v0.app',
+  title: 'AJC',
+  description: 'Adapted Joint Document Creator',
+  generator: 'Next.js',
   icons: {
     icon: [
       {
@@ -21,8 +21,8 @@ export const metadata: Metadata = {
         media: '(prefers-color-scheme: dark)',
       },
       {
-        url: '/icon.svg',
-        type: 'image/svg+xml',
+        url: '/logo.png',
+        type: 'image/png',
       },
     ],
     apple: '/apple-icon.png',
@@ -36,7 +36,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body className={`font-sans antialiased`}>
+      <body className={`font-sans antialiased`} suppressHydrationWarning>
         {children}
         <Analytics />
       </body>

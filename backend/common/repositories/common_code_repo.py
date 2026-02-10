@@ -17,6 +17,9 @@ class CommonCodeRepository:
     def __init__(self, db: AsyncSession):
         self.db = db
 
+    # ------------------------------------------------------------
+    # CREATE
+    # ------------------------------------------------------------
     async def create(self, code_group: str, code_value: str, code_name: str, is_use: bool = True) -> CommonCode:
         """새 공통 코드 레코드를 추가하고 커밋."""
         record = CommonCode(
@@ -34,6 +37,9 @@ class CommonCodeRepository:
         await self.db.refresh(record)
         return record
 
+    # ------------------------------------------------------------
+    # READ
+    # ------------------------------------------------------------
     async def get_by_group(self, code_group: str) -> List[CommonCode]:
         """특정 그룹에 속한 코드 목록을 그룹 내 정렬로 조회."""
         stmt = select(CommonCode).where(CommonCode.code_group == code_group).order_by(CommonCode.code_value)
@@ -54,3 +60,15 @@ class CommonCodeRepository:
         stmt = select(CommonCode).order_by(CommonCode.code_group, CommonCode.code_value)
         result = await self.db.execute(stmt)
         return list(result.scalars().all())
+
+    # ------------------------------------------------------------
+    # UPDATE
+    # ------------------------------------------------------------
+
+    # ------------------------------------------------------------
+    # DELETE
+    # ------------------------------------------------------------
+
+    # ------------------------------------------------------------
+    # ETC
+    # ------------------------------------------------------------

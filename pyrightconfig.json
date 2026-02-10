@@ -1,0 +1,16 @@
+{
+    "extraPaths": [
+        "./backend",
+        "./backend/common",
+        "./backend/api_server",
+        "./backend/ai_server"
+    ],
+    "typeCheckingMode": "off",
+    "reportGeneralTypeIssues": false,
+    "reportOptionalMemberAccess": false,
+    "reportOptionalSubscript": false,
+    "reportOptionalIterable": false,
+    "reportOptionalCall": false,
+    "reportOptionalOperand": false,
+    "reportAttributeAccessIssue": false
+}

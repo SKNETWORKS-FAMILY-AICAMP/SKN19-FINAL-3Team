@@ -15,9 +15,24 @@ class Settings(BaseSettings):
     API_HOST: str
     API_PORT: int = 8000
 
-    QUEUE_NAME: str = "llm_work_queue"
+    QUEUE_NAME: str
 
     HF_TOKEN: Optional[str] = None
+
+    # Auth
+    JWT_SECRET_KEY: Optional[str] = None
+    ACCESS_TOKEN_EXPIRE_MINUTES: Optional[int] = None
+    REFRESH_TOKEN_EXPIRE_DAYS: Optional[int] = 7
+
+    # Crypto
+    AES_SECRET_KEY: Optional[str] = None
+
+    # Privacy (JSON List of {"name": "...", "pattern": "..."})
+    PRIVACY_PATTERNS_JSON: str = '[]'
+
+    # Document Adaption Thresholds
+    THRESHOLD_LEVEL1: float = 0.95 # 0.95
+    THRESHOLD_LEVEL2: float = 0.5 # 0.8
 
     BACKEND_CORS_ORIGINS: list[str] = ["*"]
 
@@ -36,8 +51,8 @@ class Settings(BaseSettings):
     def API_SERVER_URL(self) -> str:
         return f"http://{self.API_HOST}:{self.API_PORT}"
 
-        extra = "ignore"
     class Config:
         env_file = ".env"
+        extra = "ignore"
 
 settings = Settings()
