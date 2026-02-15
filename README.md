@@ -1,6 +1,6 @@
 <!-- ![logo](assets/images/logo_v1.png?20251219) -->
 
-# SKN19-Final-3Team: AJC 문서 통합 시스템
+# SKN19-Final-3Team: AJC - AI 기반 적응형 문서 생성 시스템
 
 <div align="center">
 
